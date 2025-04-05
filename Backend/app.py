@@ -1,20 +1,36 @@
-from fastapi import FastAPI, UploadFile, File
-from chatbot import legal_chat
-from document_generator import generate_document
-from rag_engine import answer_from_doc
+# Backend/main.py
+
+from fastapi import FastAPI, UploadFile, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import time
 
 app = FastAPI()
 
+# Allow frontend to call this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class ChatQuery(BaseModel):
+    message: str
+
 @app.post("/chat")
-def chat_with_bot(message: str):
-    return {"response": legal_chat(message)}
+def chat(query: ChatQuery):
+    return {"response": f"🔍 Here's a simple legal explanation for: {query.message}"}
 
 @app.post("/generate-doc")
-def generate_legal_doc(data: dict):
-    return {"document": generate_document(data)}
+def generate_document(partyA: str = Form(...), partyB: str = Form(...), doc_type: str = Form(...)):
+    doc = f"📝 This is a {doc_type} between {partyA} and {partyB}.\nTerms and conditions apply."
+    return {"document": doc}
 
 @app.post("/rag-query")
-async def query_uploaded_file(file: UploadFile = File(...), question: str = ""):
+async def rag_query(file: UploadFile, question: str = Form(...)):
+    # Simulate answer from document
     content = await file.read()
-    return {"answer": answer_from_doc(content, question)}
+    time.sleep(1)  # simulate processing
+    return {"answer": f"📄 Based on your document and question: '{question}', here is the answer."}
 
