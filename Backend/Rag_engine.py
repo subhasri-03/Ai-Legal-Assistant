@@ -1,20 +1,26 @@
-from langchain.document_loaders import PyPDFLoader
-from langchain.chains.question_answering import load_qa_chain
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.llms import OpenAI
+from langchain_community.document_loaders import PyPDFLoader  # Updated import
+from langchain_community.embeddings import OpenAIEmbeddings  # Updated import
+from langchain_community.vectorstores import FAISS  # Updated import
+from langchain.chains import RetrievalQA
+from langchain_openai import OpenAI  # For OpenAI LLM integration
+import os
 
-def answer_from_doc(file_bytes, question):
-    # Save temp PDF
-    with open("temp.pdf", "wb") as f:
-        f.write(file_bytes)
+def rag_query(file_path: str, question: str):
+    # Load document
+    loader = PyPDFLoader(file_path)
+    pages = loader.load()
+
+    # Create embeddings
+    embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
     
-    loader = PyPDFLoader("temp.pdf")
-    documents = loader.load()
-
-    embeddings = OpenAIEmbeddings()
-    db = FAISS.from_documents(documents, embeddings)
-    chain = load_qa_chain(OpenAI(), chain_type="stuff")
-    docs = db.similarity_search(question)
-    result = chain.run(input_documents=docs, question=question)
-    return result
+    # Create vector store
+    db = FAISS.from_documents(pages, embeddings)
+    
+    # Create QA chain
+    qa = RetrievalQA.from_chain_type(
+        llm=OpenAI(openai_api_key=os.getenv("OPENAI_API_KEY")),  # Updated LLM initialization
+        chain_type="stuff",
+        retriever=db.as_retriever()
+    )
+    
+    return qa.run(question)
