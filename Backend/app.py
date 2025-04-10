@@ -1,13 +1,22 @@
-# Backend/main.py
-
-from fastapi import FastAPI, UploadFile, Form
+# Backend/main.py (app.py)
+from fastapi import FastAPI, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import tempfile
 import time
+import os
+from typing import Optional
+
+# Import local modules
+from chatbot import legal_chat
+from document_generator import generate_document
+from Rag_engine import rag_query  # Changed to lowercase filename
+
+# Initialize FastAPI
 
 app = FastAPI()
 
-# Allow frontend to call this backend
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -15,28 +24,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Pydantic model for chat
 class ChatQuery(BaseModel):
     message: str
 
+# Chat endpoint
 @app.post("/chat")
-def chat(query: ChatQuery):
-    return {"response": f"🔍 Here's a simple legal explanation for: {query.message}"}
+async def chat(query: ChatQuery):
+    try:
+        response = legal_chat(query.message)
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
+# Document generation endpoint
 @app.post("/generate-doc")
-def generate_document(partyA: str = Form(...), partyB: str = Form(...), doc_type: str = Form(...)):
-    doc = f"📝 This is a {doc_type} between {partyA} and {partyB}.\nTerms and conditions apply."
-    return {"document": doc}
+async def generate_document_endpoint(
+    partyA: str = Form(...),
+    partyB: str = Form(...),
+    doc_type: str = Form(...)
+):
+    try:
+        data = {
+            "type": doc_type,
+            "partyA": partyA,
+            "partyB": partyB
+        }
+        doc = generate_document(data)
+        return {"document": doc}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
+# RAG query endpoint
 @app.post("/rag-query")
-async def rag_query(file: UploadFile, question: str = Form(...)):
-    # Simulate answer from document
-    content = await file.read()
-    time.sleep(1)  # simulate processing
-    return {"answer": f"📄 Based on your document and question: '{question}', here is the answer."}
+async def rag_query_endpoint(
+    file: UploadFile,
+    question: str = Form(...)
+):
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
 
-from chatbot import legal_chat  # Add this import
-
-@app.post("/chat")
-def chat(query: ChatQuery):
-    response = legal_chat(query.message)  # Use the OpenAI function
-    return {"response": response}
+        # Process the document
+        answer = rag_query(tmp_path, question)
+        
+        # Cleanup temporary file
+        os.unlink(tmp_path)
+        
+        return {"answer": answer}
+    except Exception as e:
+        if tmp_path:
+            os.unlink(tmp_path)
+        raise HTTPException(status_code=500, detail=str(e))
