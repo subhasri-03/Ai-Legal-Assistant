@@ -3,4 +3,3 @@ def generate_document(data):
     if data['type'] == 'NDA':
         return f"This NDA is between {data['partyA']} and {data['partyB']}..."
     return "Unsupported document type"
-
