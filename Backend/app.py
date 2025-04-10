@@ -34,3 +34,9 @@ async def rag_query(file: UploadFile, question: str = Form(...)):
     time.sleep(1)  # simulate processing
     return {"answer": f"📄 Based on your document and question: '{question}', here is the answer."}
 
+from chatbot import legal_chat  # Add this import
+
+@app.post("/chat")
+def chat(query: ChatQuery):
+    response = legal_chat(query.message)  # Use the OpenAI function
+    return {"response": response}
