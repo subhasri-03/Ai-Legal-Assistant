@@ -1,10 +1,9 @@
 # Backend/main.py (app.py)
 from dotenv import load_dotenv
-import os
 
 load_dotenv()  # Load the .env file
-api_key = os.getenv("OPENAI_API_KEY")  # Access the key
-
+import os
+api_key = os.getenv("OPENAI_API_KEY") 
 from fastapi import FastAPI, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
